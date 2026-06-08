@@ -251,25 +251,33 @@ body {
   .pmh-dot.hila { background: var(--hila-bg); border: 1px solid var(--hila-border); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   /* Year print */
-  .year-print-grid.printing { display: grid !important; grid-template-columns: repeat(3,1fr); gap: 5mm; padding: 4mm; }
+  .year-print-grid.printing { display: grid !important; grid-template-columns: repeat(3,1fr); gap: 3mm; padding: 2mm; }
   .year-month-block { break-inside: avoid; }
-  .ymb-title { font-size: 16px; font-weight: 900; margin-bottom: 2mm; padding-bottom: 1.5mm; border-bottom: 2px solid #333; color: #111; }
+  .ymb-title { font-size: 13px; font-weight: 900; margin-bottom: 1mm; padding-bottom: 0.5mm; border-bottom: 1.5px solid #333; color: #111; }
 
   /* Year print main header */
   .year-print-header {
     display: flex !important;
     justify-content: space-between; align-items: center;
-    padding: 3mm 4mm 2mm; border-bottom: 3px solid #111;
-    margin-bottom: 2mm;
+    padding: 2mm 4mm 1.5mm; border-bottom: 2.5px solid #111;
+    margin-bottom: 1.5mm;
   }
-  .yph-title { font-size: 28px; font-weight: 900; }
-  .yph-legend { display: flex; gap: 14px; }
-  .yph-leg { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
-  .yph-dot { width: 14px; height: 14px; border-radius: 3px; }
+  .yph-title { font-size: 22px; font-weight: 900; }
+  .yph-legend { display: flex; gap: 12px; }
+  .yph-leg { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; }
+  .yph-dot { width: 12px; height: 12px; border-radius: 3px; }
   .yph-dot.araz { background: var(--araz-bg); border: 1px solid var(--araz-border); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .yph-dot.hila { background: var(--hila-bg); border: 1px solid var(--hila-border); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
-  .cal-card { box-shadow: none; border: 1px solid #ccc; }
+  /* Smaller cells for year view to fit on one page */
+  .year-print-grid.printing .day { min-height: 38px !important; padding: 2px 3px !important; }
+  .year-print-grid.printing .day-num { font-size: 11px !important; }
+  .year-print-grid.printing .badge { font-size: 7px !important; padding: 1px 3px !important; margin-top: 1px !important; }
+
+  /* Hide month header when printing year */
+  body.printing-year .print-month-header { display: none !important; }
+  /* Hide the sync-bar legend that shows at top */
+  .sync-bar { display: none !important; }
   .day { min-height: 50px; padding: 3px 4px; }
   .day-num { font-size: 13px !important; }
   .badge { font-size: 8px !important; padding: 1px 4px !important; margin-top: 2px !important; }
@@ -724,6 +732,7 @@ function printYear() {
     yearGrid.appendChild(block);
   }
 
+  document.body.classList.add('printing-year');
   document.getElementById('mainCalCard').style.display = 'none';
   document.getElementById('printMonthHeader').style.display = 'none';
   document.getElementById('yearPrintTitle').textContent = `לוח ראות ${currentYear}`;
@@ -734,6 +743,7 @@ function printYear() {
   setTimeout(() => {
     window.print();
     setTimeout(() => {
+      document.body.classList.remove('printing-year');
       document.getElementById('mainCalCard').style.display = '';
       document.getElementById('yearPrintHeader').style.display = 'none';
       yearGrid.classList.remove('printing');
