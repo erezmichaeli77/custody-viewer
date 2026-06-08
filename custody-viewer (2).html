@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>לוח ראות — צפייה</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --araz-bg:     #d6e9f8;
+  --araz-border: #5fa3d4;
+  --araz-badge:  #1e6fad;
+  --hila-bg:     #fce0e0;
+  --hila-border: #d97070;
+  --hila-badge:  #b83232;
+  --page:        #f0ece7;
+  --card:        #ffffff;
+  --ink:         #111111;
+  --ink2:        #555555;
+  --ink3:        #999999;
+  --green:       #1a9e5c;
+  --yellow:      #f0a500;
+  --red:         #cc3333;
+  --shadow:      0 2px 20px rgba(0,0,0,0.08);
+  --r:           10px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: 'Heebo', sans-serif;
+  background: var(--page);
+  color: var(--ink);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ═══ TOOLBAR ═══ */
+.toolbar {
+  background: var(--ink); color: #fff;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 12px;
+  padding-top: var(--sat);
+  height: calc(54px + var(--sat));
+  position: sticky; top: 0; z-index: 100;
+  gap: 8px; flex-shrink: 0;
+}
+.toolbar-left  { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.toolbar-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.app-title { font-size: 15px; font-weight: 800; }
+@media (max-width: 600px) { .app-title { display: none; } }
+.nav-btn {
+  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18);
+  color: #fff; font-family: 'Heebo', sans-serif;
+  font-size: 18px; font-weight: 700;
+  width: 36px; height: 36px; border-radius: 6px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent; flex-shrink: 0;
+}
+.nav-btn:active { background: rgba(255,255,255,0.25); }
+.month-lbl { font-size: 14px; font-weight: 700; min-width: 100px; text-align: center; white-space: nowrap; }
+.tb-btn {
+  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18);
+  color: #fff; font-family: 'Heebo', sans-serif;
+  font-size: 13px; font-weight: 600;
+  padding: 6px 10px; border-radius: 6px; cursor: pointer;
+  white-space: nowrap; -webkit-tap-highlight-color: transparent;
+}
+.tb-btn:active { background: rgba(255,255,255,0.25); }
+.tb-btn.today-btn { background: rgba(255,255,255,0.18); font-size: 12px; }
+@media (max-width: 600px) { .print-btn { display: none; } }
+
+/* ═══ SYNC BAR ═══ */
+.sync-bar {
+  background: var(--card); border-bottom: 1px solid #e5e1dc;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 12px; font-size: 11px; color: var(--ink2);
+  gap: 8px; flex-shrink: 0; flex-wrap: wrap;
+}
+.sync-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-left: 5px; flex-shrink: 0; }
+.sync-dot.ok      { background: var(--green); }
+.sync-dot.error   { background: var(--red); }
+.sync-dot.loading { background: var(--yellow); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.legend-row { display: flex; gap: 12px; align-items: center; }
+.leg-item { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: var(--ink2); }
+.leg-sw { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+.leg-sw.araz { background: var(--araz-bg); border: 1.5px solid var(--araz-border); }
+.leg-sw.hila { background: var(--hila-bg); border: 1.5px solid var(--hila-border); }
+
+/* ═══ TODAY CARD ═══ */
+.today-card {
+  max-width: 1120px; margin: 10px auto 0; padding: 0 10px; width: 100%;
+}
+.today-inner {
+  border-radius: var(--r); padding: 14px 18px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; box-shadow: var(--shadow);
+}
+.today-inner.araz { background: linear-gradient(135deg, #1e6fad, #2d8fd4); color: #fff; }
+.today-inner.hila { background: linear-gradient(135deg, #b83232, #d94f4f); color: #fff; }
+.today-left { display: flex; flex-direction: column; gap: 2px; }
+.today-label { font-size: 11px; font-weight: 600; opacity: 0.8; }
+.today-name  { font-size: 24px; font-weight: 900; line-height: 1; }
+.today-date  { font-size: 11px; opacity: 0.75; margin-top: 2px; }
+.today-right { text-align: center; }
+.today-days-num  { font-size: 32px; font-weight: 900; line-height: 1; }
+.today-days-lbl  { font-size: 10px; opacity: 0.8; line-height: 1.3; }
+
+/* ═══ SUMMARY ═══ */
+.summary-row {
+  display: flex; gap: 8px;
+  max-width: 1120px; margin: 8px auto 0; padding: 0 10px; width: 100%;
+}
+.sum-card {
+  flex: 1; background: var(--card); border-radius: var(--r); padding: 10px 12px;
+  display: flex; align-items: center; gap: 10px; box-shadow: var(--shadow);
+}
+.sum-icon { width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; color: #fff; flex-shrink: 0; }
+.sum-icon.araz { background: var(--araz-badge); }
+.sum-icon.hila { background: var(--hila-badge); }
+.sum-num  { font-size: 20px; font-weight: 900; line-height: 1; }
+.sum-lbl  { font-size: 10px; color: var(--ink3); }
+.sum-name { font-size: 11px; font-weight: 700; color: var(--ink2); }
+
+/* ═══ CALENDAR ═══ */
+.cal-wrap {
+  max-width: 1120px; margin: 8px auto; padding: 0 10px;
+  padding-bottom: calc(70px + var(--sab));
+  width: 100%;
+}
+.cal-card { background: var(--card); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+.wk-row { display: grid; grid-template-columns: repeat(7,1fr); background: #f7f4f0; border-bottom: 2px solid #e8e3dc; }
+.wk-hdr { text-align: center; font-weight: 800; color: var(--ink2); padding: 8px 0; font-size: 10px; letter-spacing: 0.5px; }
+@media (min-width: 500px) { .wk-hdr { font-size: 11.5px; letter-spacing: 1px; } }
+.cal-grid { display: grid; grid-template-columns: repeat(7,1fr); }
+.day {
+  border-left: 1px solid #ece8e2; border-bottom: 1px solid #ece8e2;
+  padding: 5px 4px; min-height: 70px;
+  display: flex; flex-direction: column;
+  position: relative; user-select: none;
+}
+@media (min-width: 500px) { .day { padding: 8px 8px; min-height: 90px; } }
+@media (min-width: 768px) { .day { padding: 9px 10px; min-height: 105px; } }
+.day:nth-child(7n) { border-left: none; }
+.day.araz  { background: var(--araz-bg); }
+.day.hila  { background: var(--hila-bg); }
+.day.faded { background: #f8f7f5; opacity: 0.45; }
+.day.today::before { content: ''; position: absolute; inset: 2px; border-radius: 6px; border: 2px solid var(--ink); pointer-events: none; }
+.day.committed-override::after { content: '✎'; position: absolute; top: 3px; left: 4px; font-size: 9px; color: var(--ink3); }
+.day.flash { animation: flashIn 0.6s ease; }
+@keyframes flashIn { 0%{filter:brightness(1.6)} 100%{filter:brightness(1)} }
+.day-num { font-size: 14px; font-weight: 800; line-height: 1; margin-bottom: 2px; }
+@media (min-width: 400px) { .day-num { font-size: 16px; } }
+@media (min-width: 600px) { .day-num { font-size: 19px; } }
+.day.faded .day-num { color: #ccc; }
+.day.araz  .day-num { color: #1a3d5c; }
+.day.hila  .day-num { color: #5c1a1a; }
+.heb { font-size: 8px; color: #888; margin-bottom: auto; line-height: 1.2; }
+@media (max-width: 400px) { .heb { display: none; } }
+@media (min-width: 600px) { .heb { font-size: 9px; } }
+.badge { margin-top: 4px; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 20px; align-self: flex-start; }
+@media (min-width: 500px) { .badge { font-size: 11px; padding: 2px 7px; } }
+@media (min-width: 768px) { .badge { font-size: 12px; padding: 2px 9px; margin-top: 7px; } }
+.badge.araz { background: var(--araz-badge); color: #fff; }
+.badge.hila { background: var(--hila-badge); color: #fff; }
+
+/* ═══ HISTORY MODAL ═══ */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55); backdrop-filter: blur(3px);
+  display: flex; align-items: flex-end; justify-content: center;
+  z-index: 500; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+@media (min-width: 600px) { .overlay { align-items: center; padding: 20px; } }
+.overlay.show { opacity: 1; pointer-events: all; }
+.modal {
+  background: #fff; border-radius: 20px 20px 0 0;
+  padding: 20px 18px 32px; width: 100%;
+  box-shadow: 0 -4px 40px rgba(0,0,0,0.2);
+  transform: translateY(20px); transition: transform 0.25s;
+  max-height: 85vh; overflow-y: auto;
+}
+@media (min-width: 600px) { .modal { border-radius: 16px; padding: 28px 32px; max-width: 500px; } }
+.overlay.show .modal { transform: translateY(0); }
+.modal-handle { width: 40px; height: 4px; background: #ddd; border-radius: 2px; margin: 0 auto 16px; }
+@media (min-width: 600px) { .modal-handle { display: none; } }
+.modal h2 { font-size: 18px; font-weight: 800; margin-bottom: 16px; }
+.m-btn {
+  padding: 10px 20px; border-radius: 10px; border: none;
+  font-family: 'Heebo', sans-serif; font-size: 14px; font-weight: 700;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.m-btn.cancel { background: #f0f0f0; color: var(--ink); }
+
+/* History entries */
+.history-entry {
+  border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+  background: #f8f8f8; border-right: 3px solid #ddd;
+}
+.history-entry.by-araz { border-right-color: var(--araz-badge); }
+.history-entry.by-hila { border-right-color: var(--hila-badge); }
+.history-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.history-who { font-size: 13px; font-weight: 700; }
+.history-when { font-size: 11px; color: var(--ink3); }
+.history-change { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 3px; }
+.hc-date { font-weight: 700; min-width: 50px; color: var(--ink); }
+.hc-from { color: var(--ink3); text-decoration: line-through; font-size: 11px; }
+.hc-arrow { color: var(--ink3); }
+.hc-to.araz { color: var(--araz-badge); font-weight: 700; }
+.hc-to.hila { color: var(--hila-badge); font-weight: 700; }
+.history-note { font-size: 11px; color: var(--ink3); margin-top: 4px; font-style: italic; }
+.history-empty { text-align: center; color: var(--ink3); font-size: 14px; padding: 30px 0; }
+
+/* ═══ PRINT MODAL ═══ */
+.print-options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.print-opt-btn {
+  padding: 14px 18px; border-radius: 12px; border: 2px solid #e0e0e0;
+  background: #fff; font-family: 'Heebo', sans-serif;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; gap: 10px;
+  transition: border-color 0.15s, background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.print-opt-btn:hover, .print-opt-btn:active { border-color: var(--araz-badge); background: #f0f6ff; }
+.print-opt-icon { font-size: 22px; }
+
+/* ═══ PRINT STYLES ═══ */
+@media print {
+  .toolbar, .sync-bar, .summary-row, .today-card, .overlay, #toast { display: none !important; }
+  body { background: #fff; }
+  .cal-wrap { max-width: 100%; margin: 0; padding: 0; padding-bottom: 0; overflow: visible; }
+
+  /* Month print header */
+  .print-month-header {
+    display: flex !important;
+    justify-content: space-between; align-items: center;
+    padding: 4mm 6mm 3mm; border-bottom: 2px solid #111;
+    margin-bottom: 3mm;
+  }
+  .pmh-title { font-size: 24px; font-weight: 900; }
+  .pmh-legend { display: flex; gap: 14px; }
+  .pmh-leg { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
+  .pmh-dot { width: 14px; height: 14px; border-radius: 3px; }
+  .pmh-dot.araz { background: var(--araz-bg); border: 1px solid var(--araz-border); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .pmh-dot.hila { background: var(--hila-bg); border: 1px solid var(--hila-border); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* Year print */
+  .year-print-grid.printing { display: grid !important; grid-template-columns: repeat(3,1fr); gap: 5mm; padding: 4mm; }
+  .year-month-block { break-inside: avoid; }
+  .ymb-title { font-size: 16px; font-weight: 900; margin-bottom: 2mm; padding-bottom: 1.5mm; border-bottom: 2px solid #333; color: #111; }
+
+  /* Year print main header */
+  .year-print-header {
+    display: flex !important;
+    justify-content: space-between; align-items: center;
+    padding: 3mm 4mm 2mm; border-bottom: 3px solid #111;
+    margin-bottom: 2mm;
+  }
+  .yph-title { font-size: 28px; font-weight: 900; }
+  .yph-legend { display: flex; gap: 14px; }
+  .yph-leg { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
+  .yph-dot { width: 14px; height: 14px; border-radius: 3px; }
+  .yph-dot.araz { background: var(--araz-bg); border: 1px solid var(--araz-border); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .yph-dot.hila { background: var(--hila-bg); border: 1px solid var(--hila-border); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  .cal-card { box-shadow: none; border: 1px solid #ccc; }
+  .day { min-height: 50px; padding: 3px 4px; }
+  .day-num { font-size: 13px !important; }
+  .badge { font-size: 8px !important; padding: 1px 4px !important; margin-top: 2px !important; }
+  .heb { display: none !important; }
+  .day.araz { background: var(--araz-bg) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .day.hila { background: var(--hila-bg) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .badge.araz { background: var(--araz-badge) !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .badge.hila { background: var(--hila-badge) !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+/* Screen: always hide print-only elements */
+.print-month-header { display: none; }
+.year-print-grid { display: none !important; }
+.year-print-header { display: none; }
+
+/* Print page settings — set dynamically via JS */
+@page { margin: 8mm; }
+
+/* ═══ TOAST ═══ */
+#toast {
+  position: fixed; bottom: calc(20px + var(--sab)); left: 50%; transform: translateX(-50%);
+  background: var(--ink); color: #fff;
+  padding: 10px 20px; border-radius: 24px;
+  font-size: 14px; font-weight: 600;
+  opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 900;
+  white-space: nowrap; max-width: 90vw; text-align: center;
+}
+#toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <div class="toolbar-left">
+    <span class="app-title">📅 לוח ראות</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button class="nav-btn" id="btnPrev">&#8249;</button>
+    <span class="month-lbl" id="monthLbl"></span>
+    <button class="nav-btn" id="btnNext">&#8250;</button>
+  </div>
+  <div class="toolbar-right">
+    <button class="tb-btn today-btn" onclick="goToToday()">היום</button>
+    <button class="tb-btn" onclick="openHistory()">📋</button>
+    <button class="tb-btn print-btn" onclick="openPrint()">🖨️</button>
+  </div>
+</div>
+
+<!-- SYNC BAR -->
+<div class="sync-bar">
+  <div style="display:flex;align-items:center">
+    <span class="sync-dot loading" id="syncDot"></span>
+    <span id="syncTxt">מתחבר...</span>
+  </div>
+  <div class="legend-row">
+    <div class="leg-item"><div class="leg-sw araz"></div><span>ארז</span></div>
+    <div class="leg-item"><div class="leg-sw hila"></div><span>הילה</span></div>
+    <span style="font-size:10px;color:var(--ink3)">צפייה בלבד</span>
+  </div>
+</div>
+
+<!-- TODAY CARD -->
+<div class="today-card"><div id="todayCard"></div></div>
+
+<!-- SUMMARY -->
+<div class="summary-row" id="summaryRow"></div>
+
+<!-- PRINT HEADER (month) -->
+<div class="print-month-header" id="printMonthHeader">
+  <div class="pmh-title" id="printMonthTitle"></div>
+  <div class="pmh-legend">
+    <div class="pmh-leg"><div class="pmh-dot araz"></div><span>ארז</span></div>
+    <div class="pmh-leg"><div class="pmh-dot hila"></div><span>הילה</span></div>
+  </div>
+</div>
+
+<!-- PRINT HEADER (year) -->
+<div class="year-print-header" id="yearPrintHeader">
+  <div class="yph-title" id="yearPrintTitle"></div>
+  <div class="yph-legend">
+    <div class="yph-leg"><div class="yph-dot araz"></div><span>ארז</span></div>
+    <div class="yph-leg"><div class="yph-dot hila"></div><span>הילה</span></div>
+  </div>
+</div>
+
+<!-- CALENDAR -->
+<div class="cal-wrap">
+  <div class="cal-card" id="mainCalCard">
+    <div class="wk-row">
+      <div class="wk-hdr">ראשון</div><div class="wk-hdr">שני</div>
+      <div class="wk-hdr">שלישי</div><div class="wk-hdr">רביעי</div>
+      <div class="wk-hdr">חמישי</div><div class="wk-hdr">שישי</div>
+      <div class="wk-hdr">שבת</div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+  <!-- Year print grid (hidden normally, shown on print) -->
+  <div class="year-print-grid" id="yearPrintGrid"></div>
+</div>
+
+<!-- HISTORY MODAL -->
+<div class="overlay" id="historyOverlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>📋 היסטוריית שינויים</h2>
+    <div id="historyList"></div>
+    <div style="margin-top:14px">
+      <button class="m-btn cancel" onclick="closeOverlay('historyOverlay')" style="width:100%">סגור</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRINT MODAL -->
+<div class="overlay" id="printOverlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>🖨️ הדפסה</h2>
+    <div class="print-options">
+      <button class="print-opt-btn" onclick="printMonth()">
+        <span class="print-opt-icon">📄</span>
+        <div>
+          <div>הדפס חודש נוכחי</div>
+          <div style="font-size:12px;font-weight:400;color:var(--ink2)" id="printMonthSubtitle"></div>
+        </div>
+      </button>
+      <button class="print-opt-btn" onclick="printYear()">
+        <span class="print-opt-icon">📅</span>
+        <div>
+          <div>הדפס שנה שלמה</div>
+          <div style="font-size:12px;font-weight:400;color:var(--ink2)" id="printYearSubtitle"></div>
+        </div>
+      </button>
+    </div>
+    <button class="m-btn cancel" onclick="closeOverlay('printOverlay')" style="width:100%">ביטול</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://fukmlrjfrmkegzblpnco.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1a21scmpmcm1rZWd6YmxwbmNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1Mjg0MjAsImV4cCI6MjA5NjEwNDQyMH0.Q0mFxgNqAWUb4jTTji7tyxbrBtXq_f4v3xweIvYz2A0';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const WEEK_A = ['araz','hila','hila','araz','hila','araz','araz'];
+const WEEK_B = ['hila','araz','araz','hila','araz','hila','hila'];
+const ANCHOR = new Date(2025, 5, 1);
+const MONTH_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+const DAY_HE   = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+
+function defaultCustody(dateObj) {
+  // Use date-only arithmetic to avoid timezone issues
+  const y = dateObj.getFullYear();
+  const m = dateObj.getMonth();
+  const d = dateObj.getDate();
+  // Anchor: June 1 2025
+  const anchorY = 2025, anchorM = 5, anchorD = 1;
+  // Days since anchor using date math only
+  const date1 = Date.UTC(y, m, d);
+  const date2 = Date.UTC(anchorY, anchorM, anchorD);
+  const diff = Math.round((date1 - date2) / 86400000);
+  const norm = ((diff % 14) + 14) % 14;
+  return norm < 7 ? WEEK_A[norm] : WEEK_B[norm - 7];
+}
+
+// Always start on current month
+let currentYear  = new Date().getFullYear();
+let currentMonth = new Date().getMonth();
+let committedOverrides = {};
+let commitLog = [];
+let overlaysLoaded = false; // flag: true after Supabase overrides are loaded
+
+function toKey(y, m, d) {
+  return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+function getCustody(dateObj) {
+  const k = toKey(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+  return committedOverrides[k]?.owner ?? defaultCustody(dateObj);
+}
+
+const HEB = {
+  '2025-05-28':'א׳ סיון','2025-05-29':'ב׳ סיון','2025-05-30':'ג׳ סיון','2025-05-31':'ד׳ סיון',
+  '2025-06-01':'ה׳ סיון','2025-06-02':'ו׳ סיון','2025-06-03':'ז׳ סיון – שבועות',
+  '2025-06-04':'ח׳ סיון','2025-06-05':'ט׳ סיון','2025-06-06':'י׳ סיון','2025-06-07':'י״א סיון',
+  '2025-06-08':'י״ב סיון','2025-06-09':'י״ג סיון','2025-06-10':'י״ד סיון',
+  '2025-06-11':'ט״ו סיון','2025-06-12':'ט״ז סיון','2025-06-13':'י״ז סיון',
+  '2025-06-14':'י״ח סיון','2025-06-15':'י״ט סיון','2025-06-16':'כ׳ סיון',
+  '2025-06-17':'כ״א סיון','2025-06-18':'כ״ב סיון','2025-06-19':'כ״ג סיון',
+  '2025-06-20':'כ״ד סיון','2025-06-21':'כ״ה סיון','2025-06-22':'כ״ו סיון',
+  '2025-06-23':'כ״ז סיון','2025-06-24':'כ״ח סיון','2025-06-25':'כ״ט סיון',
+  '2025-06-26':'א׳ תמוז','2025-06-27':'ב׳ תמוז','2025-06-28':'ג׳ תמוז',
+  '2025-06-29':'ד׳ תמוז','2025-06-30':'ה׳ תמוז',
+  '2025-07-01':'ו׳ תמוז','2025-07-25':'א׳ אב',
+  '2025-08-02':'ט׳ אב – תשעה באב',
+};
+
+// ════ TODAY CARD ════
+function renderTodayCard() {
+  const today   = new Date();
+  const custody = getCustody(today);
+  const name    = custody === 'araz' ? 'ארז' : 'הילה';
+  const dayName = DAY_HE[today.getDay()];
+  const dateStr = `${dayName}, ${today.getDate()} ב${MONTH_HE[today.getMonth()]}`;
+
+  // Find next transition date
+  let daysUntil = 0;
+  let cursor = new Date(today);
+  cursor.setDate(cursor.getDate() + 1);
+  while (daysUntil < 90) {
+    if (getCustody(cursor) !== custody) break;
+    daysUntil++;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  // cursor is now the first day of next custody
+  // daysUntil = days remaining WITH current custody (not counting today)
+  // e.g. today=Mon(araz), Tue=araz, Wed=hila → daysUntil=1, transition on Wed
+  const transitionDay   = cursor; // first day of next custody
+  const transitionOwner = getCustody(transitionDay);
+  const transitionName  = transitionOwner === 'araz' ? 'ארז' : 'הילה';
+  const transDay   = transitionDay.getDate();
+  const transMonth = MONTH_HE[transitionDay.getMonth()];
+
+  // Total days of current stretch including today
+  const totalDays = daysUntil + 1; // +1 for today itself
+
+  let transitionText, transitionSub;
+  if (daysUntil === 0) {
+    // tomorrow is the transition day
+    transitionText = 'מחר';
+    transitionSub  = `עובר ל${transitionName}`;
+  } else if (daysUntil === 1) {
+    // day after tomorrow is transition
+    transitionText = 'מחרתיים';
+    transitionSub  = `עובר ל${transitionName} ב-${transDay}/${transitionDay.getMonth()+1}`;
+  } else {
+    // daysUntil+1 = total days remaining including today
+    transitionText = `${daysUntil + 1}`;
+    transitionSub  = `ימים עד ${transDay}/${transitionDay.getMonth()+1}`;
+  }
+
+  const card = document.getElementById('todayCard');
+  card.innerHTML = `
+    <div class="today-inner ${custody}">
+      <div class="today-left">
+        <div class="today-label">היום אצל</div>
+        <div class="today-name">${name}</div>
+        <div class="today-date">${dateStr}</div>
+      </div>
+      <div class="today-right">
+        <div class="today-days-num">${transitionText}</div>
+        <div class="today-days-lbl">${transitionSub}</div>
+      </div>
+    </div>
+  `;
+}
+
+// ════ RENDER MONTH ════
+function renderMonth(year, month, targetGrid) {
+  targetGrid.innerHTML = '';
+  const today       = new Date();
+  const todayKey    = toKey(today.getFullYear(), today.getMonth(), today.getDate());
+  const firstDay    = new Date(year, month, 1);
+  const startDow    = firstDay.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  let cntAraz = 0, cntHila = 0;
+
+  for (let i = 0; i < startDow; i++) {
+    const prev = new Date(year, month, 1 - (startDow - i));
+    const cell = document.createElement('div');
+    cell.className = 'day faded';
+    const n = document.createElement('div'); n.className = 'day-num'; n.textContent = prev.getDate();
+    cell.appendChild(n); targetGrid.appendChild(cell);
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateObj = new Date(year, month, d);
+    const key     = toKey(year, month, d);
+    const custody = getCustody(dateObj);
+    const isOverride = committedOverrides[key] !== undefined;
+    const isToday    = key === todayKey;
+    if (custody === 'araz') cntAraz++; else cntHila++;
+
+    const cell = document.createElement('div');
+    cell.className = `day ${custody}${isToday ? ' today' : ''}${isOverride ? ' committed-override' : ''}`;
+    cell.dataset.date = key;
+
+    const num = document.createElement('div'); num.className = 'day-num'; num.textContent = d;
+    cell.appendChild(num);
+    if (HEB[key]) {
+      const hd = document.createElement('div'); hd.className = 'heb'; hd.textContent = HEB[key];
+      cell.appendChild(hd);
+    }
+    const badge = document.createElement('div');
+    badge.className = `badge ${custody}`;
+    badge.textContent = custody === 'araz' ? 'ארז' : 'הילה';
+    cell.appendChild(badge);
+    targetGrid.appendChild(cell);
+  }
+
+  const total = startDow + daysInMonth;
+  const rem = total % 7;
+  if (rem !== 0) {
+    for (let i = 1; i <= 7 - rem; i++) {
+      const cell = document.createElement('div'); cell.className = 'day faded';
+      const n = document.createElement('div'); n.className = 'day-num'; n.textContent = i;
+      cell.appendChild(n); targetGrid.appendChild(cell);
+    }
+  }
+  return { cntAraz, cntHila };
+}
+
+function render() {
+  const { cntAraz, cntHila } = renderMonth(currentYear, currentMonth, document.getElementById('calGrid'));
+  document.getElementById('monthLbl').textContent = `${MONTH_HE[currentMonth]} ${currentYear}`;
+  document.getElementById('printMonthTitle').textContent = `${MONTH_HE[currentMonth]} ${currentYear}`;
+
+  document.getElementById('summaryRow').innerHTML = `
+    <div class="sum-card">
+      <div class="sum-icon araz">א</div>
+      <div><div class="sum-name">ארז</div><div class="sum-num">${cntAraz}</div><div class="sum-lbl">ימים החודש</div></div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-icon hila">ה</div>
+      <div><div class="sum-name">הילה</div><div class="sum-num">${cntHila}</div><div class="sum-lbl">ימים החודש</div></div>
+    </div>
+  `;
+  // Only render today card if overrides are loaded (after init)
+  if (overlaysLoaded) renderTodayCard();
+}
+
+// ════ NAVIGATION ════
+function goToToday() {
+  currentYear  = new Date().getFullYear();
+  currentMonth = new Date().getMonth();
+  render();
+}
+
+document.getElementById('btnPrev').addEventListener('click', () => {
+  currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; } render();
+});
+document.getElementById('btnNext').addEventListener('click', () => {
+  currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; } render();
+});
+
+// ════ HISTORY ════
+function openHistory() {
+  const list = document.getElementById('historyList');
+  if (commitLog.length === 0) {
+    list.innerHTML = '<div class="history-empty">אין שינויים עדיין</div>';
+  } else {
+    list.innerHTML = commitLog.map(entry => {
+      const who    = entry.committed_by;
+      const byClass = (who === 'ארז') ? 'by-araz' : 'by-hila';
+      const when   = timeAgo(entry.created_at);
+      const changes = (entry.changes || []).map(c => {
+        const [y,m,d] = c.date.split('-').map(Number);
+        const dow = DAY_HE[new Date(y,m-1,d).getDay()];
+        const fromName = c.from === 'araz' ? 'ארז' : 'הילה';
+        const toName   = c.to   === 'araz' ? 'ארז' : 'הילה';
+        return `<div class="history-change">
+          <span class="hc-date">${d}/${m} (${dow})</span>
+          <span class="hc-from">${fromName}</span>
+          <span class="hc-arrow">→</span>
+          <span class="hc-to ${c.to}">${toName}</span>
+        </div>`;
+      }).join('');
+      const note = entry.changes?.[0]?.note ? `<div class="history-note">📝 ${entry.changes[0].note}</div>` : '';
+      return `<div class="history-entry ${byClass}">
+        <div class="history-meta">
+          <span class="history-who">${who}</span>
+          <span class="history-when">${when}</span>
+        </div>
+        ${changes}${note}
+      </div>`;
+    }).join('');
+  }
+  openOverlay('historyOverlay');
+}
+
+function timeAgo(isoStr) {
+  const diff = Math.floor((Date.now() - new Date(isoStr)) / 1000);
+  if (diff < 60)   return 'עכשיו';
+  if (diff < 3600) return `לפני ${Math.floor(diff/60)} דקות`;
+  if (diff < 86400)return `לפני ${Math.floor(diff/3600)} שעות`;
+  return `לפני ${Math.floor(diff/86400)} ימים`;
+}
+
+// ════ PRINT ════
+function openPrint() {
+  document.getElementById('printMonthSubtitle').textContent = `${MONTH_HE[currentMonth]} ${currentYear}`;
+  document.getElementById('printYearSubtitle').textContent  = `כל ${currentYear}`;
+  openOverlay('printOverlay');
+}
+
+function injectPageStyle(size, orientation) {
+  let el = document.getElementById('dynamicPageStyle');
+  if (!el) { el = document.createElement('style'); el.id = 'dynamicPageStyle'; document.head.appendChild(el); }
+  el.textContent = `@page { size: ${size} ${orientation}; margin: 8mm; }`;
+}
+
+function printMonth() {
+  closeOverlay('printOverlay');
+  injectPageStyle('A3', 'landscape');
+  document.getElementById('mainCalCard').style.display = '';
+  document.getElementById('yearPrintGrid').classList.remove('printing');
+  document.getElementById('yearPrintGrid').style.display = 'none';
+  document.getElementById('printMonthHeader').style.display = 'flex';
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => { document.getElementById('printMonthHeader').style.display = 'none'; }, 500);
+  }, 150);
+}
+
+function printYear() {
+  closeOverlay('printOverlay');
+  injectPageStyle('A3', 'portrait');
+
+  const yearGrid = document.getElementById('yearPrintGrid');
+  yearGrid.innerHTML = '';
+
+  for (let m = 0; m < 12; m++) {
+    const block = document.createElement('div');
+    block.className = 'year-month-block';
+
+    const title = document.createElement('div');
+    title.className = 'ymb-title';
+    title.textContent = `${MONTH_HE[m]} ${currentYear}`;
+    block.appendChild(title);
+
+    const wkRow = document.createElement('div');
+    wkRow.className = 'wk-row';
+    wkRow.style.cssText = 'border-bottom:1px solid #ccc;';
+    ['א','ב','ג','ד','ה','ו','ש'].forEach(d => {
+      const h = document.createElement('div');
+      h.className = 'wk-hdr';
+      h.style.fontSize = '8px';
+      h.textContent = d;
+      wkRow.appendChild(h);
+    });
+
+    const grid = document.createElement('div');
+    grid.className = 'cal-grid';
+    renderMonth(currentYear, m, grid);
+
+    const card = document.createElement('div');
+    card.className = 'cal-card';
+    card.style.cssText = 'box-shadow:none;border:1px solid #ccc;';
+    card.appendChild(wkRow);
+    card.appendChild(grid);
+    block.appendChild(card);
+    yearGrid.appendChild(block);
+  }
+
+  document.getElementById('mainCalCard').style.display = 'none';
+  document.getElementById('printMonthHeader').style.display = 'none';
+  document.getElementById('yearPrintTitle').textContent = `לוח ראות ${currentYear}`;
+  document.getElementById('yearPrintHeader').style.display = 'flex';
+  yearGrid.style.removeProperty('display');
+  yearGrid.classList.add('printing');
+
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => {
+      document.getElementById('mainCalCard').style.display = '';
+      document.getElementById('yearPrintHeader').style.display = 'none';
+      yearGrid.classList.remove('printing');
+      yearGrid.style.display = 'none';
+    }, 500);
+  }, 150);
+}
+
+// ════ OVERLAY HELPERS ════
+function openOverlay(id)  { document.getElementById(id).classList.add('show'); }
+function closeOverlay(id) { document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('.overlay').forEach(ov => {
+  ov.addEventListener('click', e => { if (e.target === ov) closeOverlay(ov.id); });
+});
+
+// ════ SUPABASE ════
+function setSyncStatus(state, txt) {
+  document.getElementById('syncDot').className = `sync-dot ${state}`;
+  document.getElementById('syncTxt').textContent = txt;
+}
+let toastTimer;
+function showToast(msg, dur = 2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), dur);
+}
+
+async function init() {
+  setSyncStatus('loading', 'מתחבר...');
+  try {
+    // Load overrides
+    const { data: ov } = await sb.from('overrides').select('*');
+    committedOverrides = {};
+    (ov || []).forEach(r => { committedOverrides[r.date] = { owner: r.owner }; });
+    overlaysLoaded = true;
+    renderTodayCard(); // now safe to render with correct overrides
+
+    // Load commit log (latest 20)
+    const { data: log } = await sb.from('commit_log').select('*').order('created_at', { ascending: false }).limit(20);
+    commitLog = log || [];
+
+    // Realtime overrides
+    const channel = sb.channel('viewer-overrides', { config: { broadcast: { self: false } } });
+    channel.on('postgres_changes', { event: '*', schema: 'public', table: 'overrides' }, (payload) => {
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        committedOverrides[payload.new.date] = { owner: payload.new.owner };
+        const el = document.querySelector(`[data-date="${payload.new.date}"]`);
+        if (el) { el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 700); }
+      } else if (payload.eventType === 'DELETE') {
+        delete committedOverrides[payload.old.date];
+      }
+      render();
+      showToast('📡 הלוח עודכן');
+    });
+
+    // Realtime commit log
+    const logChannel = sb.channel('viewer-commits', { config: { broadcast: { self: false } } });
+    logChannel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'commit_log' }, (payload) => {
+      commitLog.unshift(payload.new);
+      if (commitLog.length > 20) commitLog.pop();
+    });
+    logChannel.subscribe();
+
+    channel.subscribe(status => {
+      if (status === 'SUBSCRIBED') setSyncStatus('ok', 'מחובר — עדכונים בזמן אמת');
+      else if (status === 'CHANNEL_ERROR') setSyncStatus('error', 'שגיאת חיבור');
+    });
+
+  } catch(e) {
+    setSyncStatus('error', 'שגיאת חיבור: ' + e.message);
+  }
+  render();
+}
+
+// Always start on current month when app opens
+render();
+init();
+</script>
+</body>
+</html>
